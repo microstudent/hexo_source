@@ -1,0 +1,103 @@
+---
+title: CACW开发笔记（一）：关于Android4.4以上实现透明状态栏
+date: 2015-11-5 20:27:43
+tags: cacw
+---
+
+## 开坑啦！
+首先简单介绍一下什么是CACW。
+
+CACW是我当前正在开发的一款Android应用的代号，中文名是**蚂蚁团队**，主要功能是协助各类团队进行团队项目的管理及其任务的分配，主要功能包括任务定时提醒、任务分配、团队项目管理等功能，服务器端采用C++编写程序，android端采用Material design设计风格进行设计。为了记录下我在开发这款应用时踩到的各种坑，我将会在以后不定时的更新这应用的开发进度。
+<!-- more -->
+目前这款应用开发进度大概是30%左右，首先来说说今天的主题吧————**Android状态栏透明**。
+
+首先先上一下最终效果图：
+![](http://img-storage.qiniudn.com/15-11-4/25804636.jpg)
+## Material design设计规范对状态栏的推荐标准
+根据[Google官方文档](https://www.google.com/design/spec/style/color.html#color-ui-color-application)，状态栏的颜色应该是colorPrimaryDark，或者是透明度为20%的黑色半透明遮罩。
+
+![](http://img-storage.qiniudn.com/15-11-5/50877279.jpg)
+
+但是问题在于那个20%的半透明可能没那么简单，因为半透明状态栏在android4.4(v19)以上才能实现，而如果使用不恰当就会有各种问题。例如[EidtText光标不会随着软键盘的弹出而自动上浮，挡住了EditText](http://www.zhihu.com/question/30804539)。
+
+### 存在的障碍
+此前，针对4.4状态栏透明的做法一般是设置windowTranslucentStatus = true，这样布局将会忽略状态栏，将内容往上顶，toobar就会和statusbar重叠，因此在放置toolbar的时候需要设置margin，或者在状态栏的位置放置一个View来恢复正常的布局。这样又涉及到了计算statusbar高度的问题。
+
+> statusbar的高度为25dp（最新的android 6.0是24dp）
+
+但是在android5.x上如果照搬4.4的解决方案其实并不合理，原因在于TranslucentStatus在5.x以上的表现不同，遮罩层颜色过深，不太符合Material Design的标准。
+## 解决方案
+经过一番搜索，我在[这里](http://www.zhihu.com/question/31468556)找到了可以解决问题的答案。
+
+> 如果不需要支持 4.4，建议直接使用 statusBarColor
+
+> 如果需要支持 4.4，建议 4.4 使用 windowTranslucentStatus；5.x 使用 statusBarColor/colorPrimaryDark
+
+#### 1. 添加style
+
+首先在sytle.xml里面定义半透明状态栏。分别新建v19和v21两个style，加入以下style：
+
+v19
+
+	   <style name="translucent_status" parent="AppTheme">
+	        <item name="android:windowTranslucentStatus">true</item>
+	   </style>
+
+v21
+
+	    <style name="translucent_status" parent="AppTheme">
+	        <item name="android:statusBarColor">#33000000</item>
+	    </style>
+
+> 注意：因为android4.4以下没有透明状态栏的选项，因此在无修饰符的style.xml里面也要定义一个同名的style保证在低版本下运行不会因为找不到style而崩溃。
+
+#### 2.修改manifest
+在manifest里面定义theme属性。
+
+	android:theme="@style/translucent_status"
+
+#### 3.修改activity代码
+因为StatusBarColor并不会将布局上移，因此我们需要加上：
+
+	        Window window = getActivity().getWindow();
+	
+	        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+	            window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+	        }
+
+#### 4.修正toolbar位置
+因为布局上移了因此toolbar和statusbar会重叠，如果你是像我一样的懒人，你可以设置margin：
+
+`
+        <item name="android:layout_marginTop">@dimen/status_bar_height</item>
+`
+
+dimens.xml:
+
+`
+    <dimen name="status_bar_height">25dp</dimen>
+`
+
+*(当然如果为了支持最新的android6.0你可能还需要新建一个v23版本的dimens，设置为24dp)*
+
+你也可以选择在java里动态获取statusbar的高度（未验证）：
+
+
+	public int getStatusBarHeight() {
+	        int result = 0;
+	        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+	        if (resourceId > 0) {
+	            result = getResources().getDimensionPixelSize(resourceId);
+	        }
+	        return result;
+	    }
+
+#### 5.添加 fitsSystemWindow="true"（可选）
+因为android4.4的方案可能会导致EditText被软键盘挡住，因此如果有用到Edittext则需要在v19版本的布局文件根布局设置 fitsSystemWindow="true"。
+
+> 需要注意的是，不要同时设置windowTranslucentNavigation，这样会导致上面的方案失效
+
+
+**这就是目前在android4.4以上实现透明状态栏的方案啦，希望能够对大家有帮助！**
+
+**下期节目再见。**
