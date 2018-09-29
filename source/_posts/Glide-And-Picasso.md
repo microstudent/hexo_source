@@ -18,7 +18,7 @@ tags:
 
   Glide：
 
-```
+```java
       Glide.with(context)//with处输入参数的具体类型可以影响到Glide是否能够正确管理图片的生命周期，下面细讲
           .load(url)
           .asBitmap()//对于Glide来说，除了Bitmap可以是Gif
@@ -32,7 +32,7 @@ tags:
 ```
   Picasso：
 
-```
+```java
         Picasso.with(context.getContext().getApplicationContext())//最好传入AppContext以避免内存泄露
                           .load(url)
                           .config(Bitmap.Config.RGB_565)//Picasso的默认色彩模式是8888
@@ -48,7 +48,7 @@ tags:
 2. 缓存相关API
 
   在Picasso里面，由于没有内存缓存清理的API，我们用的是通过反射来获取缓存进行清空，使用反射始终不是一种妥当的方法。
-  ```
+  ```java
         public static void clearPicassoCache(Context context) {
          try {
              Cache cache = (Cache) ReflectHelper.getField(Picasso.with(context.getApplicationContext()), "cache");
@@ -60,7 +60,7 @@ tags:
 ```
 
     在Glide里面则可以方便的使用以下语句清理内存缓存。
-```
+```java
         Glide.get(context).clearMemoryCache();
 ```
     另外，Picasso本身不实现磁盘缓存，我们需要通过配置Okhttp来实现缓存，而这依赖于Http的响应头或者请求头，对服务器有要求，亦或是我们需要自己修改请求头。
@@ -74,28 +74,29 @@ tags:
     * Priority.NORMAL
     * Priority.HIGH
     * Priority.IMMEDIATE
-
+```java
         Glide
          .with(context)
          .load(url)
          .priority(Priority.HIGH)
          .into(ImageView);
-
+```
 4. Glide.with()传入参数对图片加载的影响
   Glide有一个称为生命周期集成（Lifecycle integration）的特性，图片请求能够根据我们在 Glide.with()传入的对象的不同来暂停或重新加载，同时，Gif动画也能够在onStop后自行暂停，节省电量。此外，当手机的网络状态发生了改变，所有失败的图片请求都要重新加载以确保没有请求因为暂时的网络问题而永远无法加载。
 
   关于生命周期绑定的实现原理，我粗略的翻阅了一下源代码，下面简单描述一下Glide是如何做到生命周期绑定的。
 
   Glide.with()方法接受包括Activity、FragmentActivity、Fragment、support包的Fragment，context这几种参数。他们的实现都是由RequestManagerRetriever的单例来获取一个RequestManager来加载图片。
-
+```java
           public static RequestManager with(Context context) {
             RequestManagerRetriever retriever = RequestManagerRetriever.get();
             return retriever.get(context);
         }
+```
   RequestManagerRetriever是真正用于获取RequestManager的类，他内部包括两个HashMap，两个都是用于存放泛型为<FragmentManager, RequestManagerFragment>的，只是一个支持的是support包的Fragment。
 
   无论输入的是Activity还是Fragment，在获取RequestManager的时候都是以他们内部的FragmentManager来作为绑定依据。例如以下代码：
-
+```java
       public RequestManager get(FragmentActivity activity) {
             if (Util.isOnBackgroundThread()) {
                 return get(activity.getApplicationContext());//应用运行在后台，使用AppContext
@@ -117,6 +118,7 @@ tags:
                 }
                 return requestManager;
             }
+```
   对于上面提到的RequestManagerFragment，他的内部实现是这样的：
 
   RequestManagerFragment包含了RequestManager、ActivityFragmentLifecycle等成员变量。因为RequestManagerFragment通过了FragmentManager附加到了Glide.with()传入的Activity或者Fragment，因此RequestManagerFragment的生命周期是相对应的。
@@ -124,7 +126,7 @@ tags:
   * ActivityFragmentLifecycle是起到一个事件传递的作用，对每一个RequestManagerFragment传递的生命周期事件，ActivityFragmentLifecycle都会相应地notify其所添加的所有Listener。
 
   * RequestManager在构造方法中监听了ActivityFragmentLifecycle，因此他也会接收到生命周期的变化，并根据相应的生命周期做出反应。比如在onStop的时候暂停请求，在onDestroy的时候取消所有请求：
-```
+```java
       /**
        * Lifecycle callback that unregisters for connectivity events (if the android.permission.ACCESS_NETWORK_STATE
        * permission is present) and pauses in progress loads.
