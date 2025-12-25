@@ -3,11 +3,13 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: MicroStudent的博客
+title: LeavesGeek的博客
 subtitle: 你知道的与不知道的
 description: I love learning.
-author: MicroStudent
-language: zh-cn
+author: LeavesGeek
+language:
+  - zh-CN
+  - en
 timezone: 
 keywords: Android,Hexo
 avatar: /assets/images/avatar.jpg
@@ -18,7 +20,7 @@ archive_generator:
   monthly: false
   daily: false
 weibo: 1572542140
-github: microstudent
+github: LeavesGeek
 
 # URL
 ## If your site is put in a subdirectory, set url as 'http://yoursite.com/child' and root as '/child/'
@@ -82,7 +84,7 @@ pagination_dir: page
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: anatole
+theme: butterfly
 
 # Deployment
 ## Docs: https://hexo.io/docs/deployment.html
